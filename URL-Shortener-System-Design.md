@@ -501,6 +501,14 @@ Even if two servers generate IDs at the same millisecond, they have different Wo
 ---
 
 ### 6.2 Low-Level Design Diagram (Final Architecture)
+<img width="798" height="280" alt="image" src="https://github.com/user-attachments/assets/efc46246-5104-4563-bd71-9d747a4b7ffa" />
+<img width="660" height="332" alt="image" src="https://github.com/user-attachments/assets/5ebea70e-1ca8-4bc7-a4b7-9f333947d45e" />
+<img width="627" height="290" alt="image" src="https://github.com/user-attachments/assets/9165db12-452d-4e05-ae3d-758363ad8ceb" />
+<img width="573" height="223" alt="image" src="https://github.com/user-attachments/assets/b29f9fed-cf46-4989-ba6e-aad23b03f217" />
+
+
+
+
 
 ```
                                     ┌──────────────┐
