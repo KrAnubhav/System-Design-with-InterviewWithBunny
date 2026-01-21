@@ -124,6 +124,9 @@ GET /v1/url/{shortURL}
 ## 5. High-Level Design (HLD)
 
 ### 5.1 High-Level Design Diagram
+<img width="641" height="131" alt="image" src="https://github.com/user-attachments/assets/e377931d-033e-4908-88b6-9d195f3102c8" />
+
+
 
 ```
 ┌──────────┐                                    ┌──────────────┐
