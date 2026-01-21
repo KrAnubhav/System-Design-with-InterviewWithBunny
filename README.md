@@ -69,4 +69,4 @@ Feel free to open a **Pull Request**! Let's make this the ultimate System Design
 
 ---
 
-*Made with ❤️ by [Your Name] & InterviewWithBunny Community*
+*Made with ❤️ by [Anubhav] & InterviewWithBunny Community*
