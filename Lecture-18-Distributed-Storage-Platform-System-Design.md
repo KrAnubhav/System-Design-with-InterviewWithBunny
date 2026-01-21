@@ -2,760 +2,569 @@
 
 > **Lecture:** 18  
 > **Topic:** System Design  
-> **Application:** Google Drive, Dropbox  
-> **Scale:** Millions of users, billions of files  
-> **Difficulty:** Hard  
-> **Previous:** [[Lecture-17-Payment-Gateway-System-Design|Lecture 17: Payment Gateway]]
+> **Application:** Google Drive, Dropbox, OneDrive  
+> **Scale:** Millions of Users, Billions of Files (Petabytes of Data)  
+> **Difficulty:** Very Hard (Client-Side Complexity + Distributed Sync)  
+> **Previous:** [[Lecture-17-Payment-Gateway-System-Design|Lecture 17: Payment Gateway System Design]]
 
 ---
 
-## 1. Functional and Non-Functional Requirements
+<br>
 
-### 1.1 Functional Requirements
+## 1. Introduction
 
-1. **User Onboarding** - Create account
-2. **File Upload** - Upload files/folders/documents
-3. **File Download** - Download from anywhere
-4. **Auto-Sync** - All devices sync automatically
-5. **File Sharing** - Share with permissions (read/write)
-6. **Directory Operations** - Create, delete, rename folders
-7. **Storage Quota** - 15GB free (like Google Drive)
+Designing a distributed cloud storage platform like **Google Drive** or **Dropbox** is one of the most complex system design problems. Unlike typical web applications where complexity lies in the backend, here a significant portion of the complexity resides in the **Client Application** (Desktop/Mobile) handling file synchronization, chunking, and conflict resolution.
 
-**Out of Scope:** Collaborative editing (covered in Lecture 10)
-
----
-
-### 1.2 Non-Functional Requirements
-
-1. **Scale:** Millions of users, billions of files
-2. **CAP Theorem:** **Highly Available (AP)** with eventual consistency for sync
-   - Upload/download must always work
-   - Sync can have small delay (eventual consistency)
-   - **Exception:** Collaborative editing needs strong consistency
-3. **Large Files:** Support multi-GB uploads
-4. **Latency:** Minimal upload/sync latency
-5. **Durability:** Zero data loss, highly reliable
+### **What is a Distributed Storage Platform?**
+It is a service that allows users to:
+1.  Store files in the cloud (reliably and securely).
+2.  Synchronize files across multiple devices automatically.
+3.  Share files with others.
+4.  Access files from anywhere.
 
 ---
 
-## 2. Core Entities
+<br>
 
-1. **User** - Account holder
-2. **File Metadata** - Name, size, type, permissions, version
-3. **File/Folder** - Actual data
-4. **Chunk** - File split into pieces (4-5MB each)
-5. **Permission** - Access control (read/write)
-6. **Version** - File version tracking
+## 2. Requirement Gathering
+
+### 2.1 Functional Requirements
+
+1.  **User Onboarding:** Users should be able to create an account and sign up/sign in.
+2.  **File Upload:**
+    *   Users can upload files, photos, videos, documents.
+    *   Support for **large files** (GBs to TBs).
+    *   Support for folder structures (nested directories).
+3.  **File Download:** Users can download files on demand from any device.
+4.  **Automatic Synchronization (Sync):**
+    *   If a user updates a file on Device A, it should automatically update on Device B, C, etc.
+    *   This includes adds, edits, deletes, and renames.
+5.  **File Sharing:**
+    *   Users can share files/folders with specific users.
+    *   Granular permissions (Read-Only, Edit/Write).
+6.  **Directory Management:** Create, delete, move, and rename directories.
+7.  **Storage Quota:** Service must enforce storage limits (e.g., 15GB free tier).
+8.  **Offline Support:** Users can modify files offline; changes sync when back online.
+
+### 2.2 Non-Functional Requirements
+
+1.  **Scalability:**
+    *   **Traffic:** Millions of Daily Active Users (DAU).
+    *   **Storage:** Exabytes of data.
+    *   **Throughput:** High write/read throughput.
+2.  **Availability vs Consistency (CAP Theorem):**
+    *   **Syncing:** **High Availability (AP)**. We prefer the system to be up and accept uploads. Synchronization can be *eventually consistent* (seconds of delay is acceptable).
+    *   **Metadata:** **strong Consistency (CP)**. If I grant permission, it must be immediate. If I delete a file, it shouldn't be accessible.
+    *   **Conflict Resolution:** Needs robust logic (e.g., "last write wins" or creating copies).
+3.  **Reliability & Durability:**
+    *   **Zero Data Loss:** Files must be replicated. Durability is non-negotiable (e.g., 99.999999999% durability).
+4.  **Performance (Latency):**
+    *   **Upload/Download:** Limited by network bandwidth, but system overhead should be minimal.
+    *   **Sync Latency:** Should feel "real-time" to the user.
+5.  **Security:** Encryption at rest and in transit.
+
+---
+
+<br>
+
+## 3. Core Entities & Estimation
+
+### 3.1 Core Entities
+
+| Entity | Description |
+| :--- | :--- |
+| **User** | Account holder authenticated in the system. |
+| **File** | The actual binary data (Blob). |
+| **Metadata** | Information about the file (Name, Size, Type, Path, Owner). |
+| **Folder** | A virtual grouping mechanism (Metadata only). |
+| **Chunk** | A piece of a file. Large files are split into smaller blocks. |
+| **Version** | Tracks changes to files over time. |
+| **Permission** | Access control list (ACL) for sharing. |
+| **Device/Client** | The physical device syncing data. |
+
+### 3.2 Capacity Estimation (Back-of-the-Envelope)
+
+*   **Users:** 500 Million Total, 100 Million DAU.
+*   **Average Storage:** 10 GB per user.
+*   **Total Storage:** 500M * 10GB = **5 Exabytes (EB)**.
+*   **QPS (Queries Per Second):**
+    *   Assume 1 user syncs 5 files/day.
+    *   100M * 5 = 500M request/day.
+    *   ~6,000 QPS average (Metadata).
+    *   **Peak QPS:** ~12,000 - 15,000 QPS.
 
 ---
 
-## 3. Key Concept: Folders Are Metadata!
-
-**Critical Insight:** Google Drive doesn't create real directories. Everything is metadata!
-
-```json
-{
-  "folderId": "folder_123",
-  "name": "Photos",
-  "type": "FOLDER",
-  "parentId": "root",
-  "children": [
-    {
-      "fileId": "file_456",
-      "name": "vacation.jpg",
-      "type": "FILE",
-      "size": 2048000
-    },
-    {
-      "folderId": "folder_789",
-      "name": "2024",
-      "type": "FOLDER",
-      "children": [...]
-    }
-  ]
-}
-```
-
-**Operations:**
-- **Create folder:** Insert metadata with `type: FOLDER`
-- **Rename:** Update `name` field
-- **Move file:** Change `parentId`
-- **Delete:** Remove metadata entry
-
----
+<br>
 
 ## 4. API Design
 
-### 4.1 Folder Management
+The API design here is unique because we separate **Control Plane** (Metadata) from **Data Plane** (File Chunks).
 
-```
+### 4.1 Metadata APIs (REST)
+
+**1. Create Folder**
+```http
 POST /v1/folders
-Body: {name: "Photos", parentId: "root", type: "FOLDER"}
-
-GET /v1/folders/{folderId}
-Response: {folderId, name, parentId, createdBy, createdAt}
-
-GET /v1/folders/{folderId}/content
-Response: {children: [...]}
+Authorization: Bearer <token>
+```
+```json
+{
+  "name": "Vacation Photos",
+  "parent_folder_id": "root_123"
+}
 ```
 
----
-
-### 4.2 File Upload (5-Step Process)
-
-**Step 1: Initialize Upload**
+**2. Get Folder Content (List Files)**
+```http
+GET /v1/folders/{folder_id}/content
+Authorization: Bearer <token>
 ```
+*Response:* List of files and sub-folders with metadata.
+
+**3. Get File Metadata by ID**
+```http
+GET /v1/files/{file_id}/metadata
+```
+
+**4. Rename/Move File**
+```http
+PUT /v1/files/{file_id}
+```
+```json
+{
+  "name": "NewName.jpg",
+  "parent_folder_id": "new_folder_456"
+}
+```
+
+### 4.2 File Upload APIs (Complex Flow)
+
+**1. Initiate Upload**
+```http
 POST /v1/files/upload/init
-Request:
+```
+```json
 {
-  "fileName": "video.mp4",
-  "fileSize": 16777216,  // 16 MB
-  "parentFolderId": "folder_123"
+  "filename": "movie.mp4",
+  "size": 2147483648,  // 2 GB
+  "parent_folder_id": "folder_123",
+  "checksum": "final_file_hash_sha256"
 }
-
-Response:
+```
+*Response:*
+```json
 {
-  "fileId": "file_abc",
-  "uploadId": "upload_xyz",
-  "chunkSize": 5242880,  // 5 MB
-  "existingChunks": []  // Empty for fresh upload
+  "upload_id": "upload_session_abc",
+  "chunk_size": 4194304, // 4MB
+  "existing_chunks": [index_1, index_5] // For resumes/deduplication
 }
 ```
 
-**Step 2: Get Chunk Upload URLs**
-```
+**2. Get Signed URL for Chunk**
+```http
 POST /v1/files/upload/chunk-url
-Request:
+```
+```json
 {
-  "uploadId": "upload_xyz",
-  "chunkId": 1,
-  "chunkHash": "sha256_hash_of_chunk"
-}
-
-Response:
-{
-  "signedUrl": "https://s3.amazonaws.com/bucket/upload_xyz/chunk_1?signature=..."
+  "upload_id": "upload_session_abc",
+  "chunk_index": 0,
+  "chunk_hash": "hash_of_chunk_0"
 }
 ```
+*Response:*
+```json
+{
+  "signed_url": "https://s3.aws.com/bucket/chunk_xyz?signature=..."
+}
+```
 
-**Step 3: Upload Chunks (Direct to S3)**
-```
-PUT {signedUrl}
-Body: <binary chunk data>
-```
-
-**Step 4: Commit Upload**
-```
+**3. Commit Upload**
+```http
 POST /v1/files/upload/commit
-Body: {uploadId: "upload_xyz"}
 ```
-
-**Step 5: Resume Upload (if network fails)**
-```
-POST /v1/files/upload/init
-Request:
+```json
 {
-  "fileName": "video.mp4",
-  "fileSize": 16777216,
-  "resumeUploadId": "upload_xyz"  // Previous upload ID
-}
-
-Response:
-{
-  "uploadId": "upload_xyz",
-  "existingChunks": [1, 2, 3]  // Already uploaded
+  "upload_id": "upload_session_abc"
 }
 ```
 
 ---
 
-## 5. Client Components
+<br>
 
+## 5. High-Level Design (HLD)
+
+The architecture is split into the **Client Side** (complex logic) and the **Server Side** (complex scale).
+
+### 5.1 Architecture Diagram
+
+```ascii
+                                       [Cloud Storage / S3]
+                                               ▲
+                                               │ (Direct Upload/Download)
+    ┌─────────────────────────┐                │
+    │      CLIENT DEVICE      │        ┌───────┴───────┐
+    │ ┌─────────────────────┐ │        │ BLOCK SERVICE │ (Chunk Management)
+    │ │     Watcher         │ │        └───────┬───────┘
+    │ └─────────┬───────────┘ │                │
+    │ ┌─────────▼───────────┐ │        ┌───────▼───────┐
+    │ │     Chunker         │ ├───────►│  API GATEWAY  │◄────────────┐
+    │ └─────────┬───────────┘ │        └───────┬───────┘             │
+    │ ┌─────────▼───────────┐ │                │                     │
+    │ │     Indexer         │ │        ┌───────▼───────┐      ┌──────▼───────┐
+    │ │   (Internal DB)     │ ├───────►│ METADATA SVC  │      │ NOTIFICATION │
+    │ └─────────┬───────────┘ │        └───────┬───────┘      │   SERVICE    │
+    │ ┌─────────▼───────────┐ │                │              └──────▲───────┘
+    │ │     Sync Engine     │ │        ┌───────▼───────┐             │
+    │ └─────────────────────┘ │        │  METADATA DB  │      ┌──────┴───────┐
+    └─────────────────────────┘        └───────────────┘      │ MESSAGE Q    │
+                                                              │   (Kafka)    │
+                                                              └──────────────┘
 ```
-┌─────────────────────────────────────┐
-│          CLIENT (Desktop App)        │
-├─────────────────────────────────────┤
-│  1. Watcher Service                 │
-│     - Monitors file changes          │
-│                                      │
-│  2. Chunker Service                 │
-│     - Splits files into chunks       │
-│     - Generates SHA-256 hash         │
-│                                      │
-│  3. Upload Manager                  │
-│     - Manages upload flow            │
-│     - Handles retries                │
-│                                      │
-│  4. Sync Engine                     │
-│     - Keeps devices in sync          │
-│                                      │
-│  5. Local Metadata Index            │
-│     - SQLite database                │
-│     - Stores file versions locally   │
-└─────────────────────────────────────┘
-```
+
+### 5.2 Key Components
+
+#### 1. Client Application
+The client is not a dumb terminal; it's a sophisticated engine.
+*   **Watcher:** Monitors local OS file system hooks (e.g., `inotify` on Linux, `FSEvents` on Mac) for file changes.
+*   **Chunker:** Splits large files into small, fixed-size pieces (e.g., 4MB). Computes SHA-256 hash for each chunk.
+*   **Indexer (Internal DB):** An embedded database (SQLite) on the client. It tracks the state of files, chunks, versions, and sync status ("Synced", "Pending", "Syncing").
+*   **Sync Engine:** Orchestrates uploads/downloads. Handles network retries and delta syncs.
+
+#### 2. Metadata Service
+*   Manages file versioning, directory structure, and permissions.
+*   Does **not** store the actual file bytes.
+*   Stores mappings: `FileID -> [ChunkID_1, ChunkID_2, ...]`.
+
+#### 3. Block Service (Upload/Download)
+*   Manages the cloud storage (S3/Blob).
+*   Generates Pre-signed URLs.
+*   Handles deduplication logic.
+
+#### 4. Notification Service
+*   Sends real-time updates to connected devices (Push Model) so they know a file changed.
+*   Uses Long Polling or WebSockets.
 
 ---
 
-## 6. Complete Upload Flow
+<br>
 
-### 6.1 Flow Diagram
+## 6. Deep Dive & Low-Level Design
 
-```
-USER DROPS FILE (16 MB)
-    ↓
-WATCHER SERVICE detects change
-    ↓
-UPLOAD MANAGER → POST /v1/files/upload/init
-    ↓
-BACKEND:
-  - Check storage quota (User DB)
-  - Create upload session
-  - Return: {uploadId, chunkSize: 5MB, fileId}
-    ↓
-CHUNKER SERVICE:
-  - Split 16MB into 4 chunks (5MB, 5MB, 5MB, 1MB)
-  - Generate SHA-256 for each chunk
-    ↓
-FOR EACH CHUNK:
-  UPLOAD MANAGER → POST /v1/files/upload/chunk-url
-  BACKEND → Return signed S3 URL
-  CLIENT → PUT {signedUrl} (direct to S3)
-    ↓
-UPLOAD MANAGER → POST /v1/files/upload/commit
-    ↓
-BACKEND:
-  - Validate all chunks (hash verification)
-  - Save metadata to DB
-  - Publish sync event to Kafka
-    ↓
-SYNC SERVICE:
-  - Notify all connected devices
-  - Trigger download on other devices
-```
+### 6.1 The "Chunking" Strategy
+
+File storage is all about chunks. Why?
+1.  **Resumability:** If a 10GB download fails at 99%, we only retry the last chunk.
+2.  **Parallelism:** We can upload/download multiple chunks simultaneously.
+3.  **Deduplication:** Only store unique chunks.
+4.  **Delta Sync:** If a user modifies 1 byte in a 2GB file, we only upload the *one* chunk that changed, not the whole file.
+
+**Chunk Size:** ~4MB is industry standard (Dropbox uses 4MB).
+**Hashing:** SHA-256 Checksum. Uniquely identifies chunk content.
+
+**Example:**
+*File:* `video.mp4` (10MB)
+*   Chunk 1 (4MB) -> Hash: `A1B2`
+*   Chunk 2 (4MB) -> Hash: `C3D4`
+*   Chunk 3 (2MB) -> Hash: `E5F6`
 
 ---
 
-## 7. Architecture (Low-Level Design)
+### 6.2 Deduplication (Space Optimization)
 
-### 7.1 Complete System
+Since we are a "Distributed Storage" platform, many users upload the same files (e.g., viral videos, popular PDFs, software installers).
 
-```
-┌─────────────────┐
-│  CLIENT (App)   │
-│  - Watcher      │
-│  - Chunker      │
-│  - Upload Mgr   │
-│  - Sync Engine  │
-│  - Local Index  │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Load Balancer  │
-└────────┬────────┘
-         │
-    ┌────┴────┬──────────┬──────────┐
-    ▼         ▼          ▼          ▼
-┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐
-│  User  │ │ Upload │ │Metadata│ │  Sync  │
-│Service │ │Service │ │Service │ │Service │
-└───┬────┘ └───┬────┘ └───┬────┘ └───┬────┘
-    │          │          │          │
-    ▼          ▼          ▼          ▼
-┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐
-│User DB │ │ Redis  │ │Metadata│ │ Kafka  │
-│(PG)    │ │ Cache  │ │  DB    │ │        │
-└────────┘ └────────┘ └───┬────┘ └────────┘
-                          │
-         ┌────────────────┴─────────┐
-         │                          │
-    ┌────▼────┐              ┌──────▼──────┐
-    │   S3    │              │  Validator  │
-    │ Bucket  │              │  Service    │
-    └─────────┘              └─────────────┘
-```
+**How it works:**
+1.  **Content Addressable Storage (CAS):** The chunk's name in S3 is its Hash.
+2.  **Upload Flow:**
+    *   User A uploads `cat.jpg`. Chunks: `HASH_XYZ`.
+    *   System saves `HASH_XYZ` to S3.
+    *   User B uploads `cat_copy.jpg`.
+    *   Client calculates hash -> `HASH_XYZ`.
+    *   Client sends `init` request with hash.
+    *   Server checks DB: "Do I have `HASH_XYZ`?" -> **YES**.
+    *   Server response: "Upload Complete. No need to send data."
+    *   **Result:** 0 bytes uploaded, S3 storage used once, but two users "own" the file.
 
 ---
 
-### 7.2 Upload Service (Deep Dive)
+### 6.3 Detailed File Upload Flow (The 6 Steps)
 
-**Redis Cache Schema:**
-```
-Key: upload:{uploadId}
-Value: {
-  "fileId": "file_abc",
-  "fileName": "video.mp4",
-  "totalChunks": 4,
-  "uploadedChunks": [1, 2, 3],  // Bitmap
-  "chunkHashes": {
-    "1": "sha256_hash_1",
-    "2": "sha256_hash_2",
-    "3": "sha256_hash_3",
-    "4": "sha256_hash_4"
-  },
-  "retryCount": 0
-}
-TTL: 86400  // 24 hours
+This is the most critical flow to implement correctly.
+
+```mermaid
+sequenceDiagram
+    participant User as Client (Watcher)
+    participant Engine as Sync Engine
+    participant Meta as Metadata Svc
+    participant Upload as Upload Svc
+    participant S3 as Object Storage
+    participant DB as Metadata DB
+
+    Note over User, Engine: File "doc.pdf" dropped (10MB)
+
+    User->>Engine: Notify File Change
+    Engine->>Engine: Chunk File (3 Chunks)
+    Engine->>Engine: Calc SHA-256 for Chunks
+    
+    %% Step 1: Init
+    Engine->>Upload: POST /upload/init (hashes, size)
+    Upload->>DB: Check Quota & Deduplication
+    DB-->>Upload: Quota OK, Chunks 1&2 New, Chunk 3 Exists
+    Upload-->>Engine: UploadID, Upload Chunks [1, 2]
+
+    %% Step 2: Get URLs
+    loop For Chunk 1 & 2
+        Engine->>Upload: POST /chunk-url (chunk_hash)
+        Upload-->>Engine: Signed S3 URL
+    end
+
+    %% Step 3: Transfer
+    par Parallel Upload
+        Engine->>S3: PUT Chunk 1 (Binary)
+        Engine->>S3: PUT Chunk 2 (Binary)
+    end
+    S3-->>Engine: 200 OK
+
+    %% Step 4: Commit
+    Engine->>Upload: POST /upload/commit (UploadID)
+    
+    %% Step 5: Validation & Persistence
+    Upload->>S3: (Async) Validate Chunk Existence
+    Upload->>Meta: Create File Metadata
+    Meta->>DB: INSERT File Record & Chunk Mapping
+    
+    %% Step 6: Sync
+    Meta->>Kafka: Publish "FileCreated" Event
 ```
 
-**Why Redis?**
-- ✅ Fast validation during upload
-- ✅ Short-lived data (TTL)
-- ✅ High read/write frequency
+#### Step Breakdown:
+1.  **Validation:** Check User Quota.
+2.  **Optimization:** Check if chunks already exist (Deduplication).
+3.  **Security:** Generate Signed URLs (Client uploads directly to S3. Data never goes through our API servers to save bandwidth).
+4.  **Persistence:** S3 stores chunks. Metadata DB stores structure.
+5.  **Notification:** Trigger sync for other devices.
 
 ---
 
-### 7.3 Metadata DB (PostgreSQL)
+### 6.4 Metadata Database Schema
 
-**Schema:**
+We cannot use S3 for file listings because S3 listing is slow and purely flat. We need a DB to simulate a hierarchical file system.
 
+**Database Choice:**
+*   **Relational (PostgreSQL/MySQL):** Strong consistency (ACID) is crucial for file structure. Good for Metadata.
+*   **NoSQL (Cassandra/DynamoDB):** Can be used for the chunk mapping table due to huge scale.
+
+#### **1. Users Table**
 ```sql
 CREATE TABLE users (
     user_id UUID PRIMARY KEY,
-    email VARCHAR(255),
-    storage_quota BIGINT DEFAULT 16106127360,  -- 15 GB
-    storage_used BIGINT DEFAULT 0
-);
-
-CREATE TABLE folders (
-    folder_id UUID PRIMARY KEY,
-    parent_folder_id UUID,
-    owner_id UUID,
     name VARCHAR(255),
-    type VARCHAR(10),  -- 'FOLDER'
+    email VARCHAR(255),
+    total_quota BIGINT DEFAULT 15000000000, -- 15GB
+    used_quota BIGINT DEFAULT 0,
     created_at TIMESTAMP
 );
+```
 
+#### **2. File Metadata Table (The Virtual File System)**
+This table represents the directory tree.
+```sql
 CREATE TABLE files (
     file_id UUID PRIMARY KEY,
-    parent_folder_id UUID,
     owner_id UUID,
+    parent_folder_id UUID, -- NULL if root
     name VARCHAR(255),
+    is_folder BOOLEAN,
     size BIGINT,
     version INT DEFAULT 1,
-    created_at TIMESTAMP
+    checksum VARCHAR(256),
+    created_at TIMESTAMP,
+    is_deleted BOOLEAN, -- Soft delete (Trash)
+    INDEX(owner_id, parent_folder_id) -- Speed up directory listing
 );
+```
 
+#### **3. Chunks Table (Deduplication Store)**
+Tracks unique chunks that exist in S3.
+```sql
 CREATE TABLE chunks (
-    chunk_id UUID PRIMARY KEY,
-    file_id UUID,
-    chunk_index INT,
-    s3_path VARCHAR(500),
-    chunk_size BIGINT,
-    checksum VARCHAR(64),  -- SHA-256
-    version INT
+    chunk_hash VARCHAR(256) PRIMARY KEY, -- SHA-256
+    bucket_path VARCHAR(512),
+    size INT,
+    ref_count INT DEFAULT 1 -- For garbage collection
 );
+```
 
+#### **4. File_Version_Chunks_Map (The Glue)**
+Connects a specific version of a file to its chunks.
+```sql
 CREATE TABLE file_chunks (
     file_id UUID,
-    chunk_id UUID,
-    chunk_index INT,
-    version_id INT,
-    PRIMARY KEY (file_id, chunk_index, version_id)
-);
-
-CREATE TABLE permissions (
-    permission_id UUID PRIMARY KEY,
-    resource_type VARCHAR(10),  -- 'FILE' or 'FOLDER'
-    resource_id UUID,
-    user_id UUID,
-    role VARCHAR(10),  -- 'READ', 'WRITE', 'OWNER'
-    created_at TIMESTAMP
-);
-```
-
----
-
-## 8. Chunk Validation
-
-**Problem:** How to ensure chunks uploaded correctly?
-
-**Solution:** Hash verification
-
-**Client Side (Chunking):**
-```java
-void chunkFile(File file) {
-    int chunkSize = 5 * 1024 * 1024;  // 5 MB
-    int chunkIndex = 0;
-    
-    while (offset < file.length()) {
-        byte[] chunkData = readChunk(file, offset, chunkSize);
-        
-        // Generate hash
-        String hash = SHA256(chunkData);
-        
-        // Store locally
-        chunkMetadata.put(chunkIndex, new Chunk(chunkIndex, hash, chunkData));
-        
-        offset += chunkSize;
-        chunkIndex++;
-    }
-}
-```
-
-**Server Side (Validation):**
-```java
-void validateUpload(String uploadId) {
-    // Get expected hashes from Redis
-    Map<Integer, String> expectedHashes = redis.get("upload:" + uploadId).getChunkHashes();
-    
-    // Read actual chunks from S3
-    for (int i = 0; i < expectedHashes.size(); i++) {
-        byte[] chunkData = s3.getObject("upload_" + uploadId + "/chunk_" + i);
-        String actualHash = SHA256(chunkData);
-        
-        if (!actualHash.equals(expectedHashes.get(i))) {
-            // Mismatch! Request re-upload
-            requestRetry(uploadId, i);
-        }
-    }
-}
-```
-
----
-
-## 9. Sync Mechanism
-
-### 9.1 Two Approaches
-
-**1. Pull (Refresh)**
-```
-Client (every 30s):
-    POST /v1/sync/check
-    Body: {files: [{fileId: "abc", version: 1}, ...]}
-    
-Server:
-    - Compare with Metadata DB
-    - Return outdated files
-    
-Response:
-    {outdatedFiles: [{fileId: "abc", latestVersion: 2, downloadUrl: "..."}]}
-```
-
-**2. Push (Fan-out)**
-```
-User uploads file
-    ↓
-Upload Service → Kafka (sync_event topic)
-    ↓
-Sync Service consumes event
-    ↓
-Notify all connected clients via WebSocket
-    ↓
-Clients download new version
-```
-
----
-
-### 9.2 Local Metadata Index (SQLite)
-
-```sql
-CREATE TABLE local_files (
-    file_id VARCHAR(100),
-    file_name VARCHAR(255),
     version INT,
-    last_modified TIMESTAMP,
-    local_path VARCHAR(500),
-    sync_status VARCHAR(20)  -- 'SYNCED', 'PENDING', 'CONFLICT'
+    chunk_index INT, -- 0, 1, 2...
+    chunk_hash VARCHAR(256),
+    PRIMARY KEY (file_id, version, chunk_index)
 );
 ```
 
-**Usage:**
+---
+
+### 6.5 The Sync Flow
+
+How do other devices get the file?
+
+#### **Push vs Pull**
+*   **Pull:** Client polls server every minute. *Inefficient.*
+*   **Push:** Server notifies client via WebSocket/Notification. *Real-time.*
+
+**Design:** Hybrid.
+1.  **Notification:** Server sends a lightweight ping via WebSocket to connected clients: *"Change in Folder ID 123"*.
+2.  **Pull Metadata:** Client wakes up, calls `GET /changes?since=timestamp`.
+3.  **Download:** Client sees new file metadata, requests chunks, downloads from S3.
+
+#### **Handling Offline Conflicts**
+*   User A edits `doc.txt` offline (v1 -> v2).
+*   User B edits `doc.txt` online (v1 -> v3).
+*   User A comes online.
+*   System detects conflict (Parent version determines validity).
+*   **Strategy:** Create a "Conflicted Copy" (e.g., `doc (User A's conflicted copy).txt`). We generally do not merge text files automatically.
+
+---
+
+<br>
+
+## 7. Scalability & Optimizations
+
+### 7.1 Metadata Partitioning (Sharding)
+The Metadata DB will grow huge (billions of rows).
+*   **Sharding Key:** `User_ID` is strictly strongly safe because normally users only search/modify their own files. Sharing adds complexity, but usually, we shard by `File_ID` or `Account_ID`.
+*   **Hot Spotting:** Not usually an issue unless one user has 100M files (unlikely).
+
+### 7.2 Async Processing (Post-Processing)
+When a file is uploaded, many background jobs run:
+1.  **Virus Scan:** Check for malware.
+2.  **Thumbnail Generation:** For images/videos.
+3.  **PDF/Doc Preview:** Convert to lightweight format.
+4.  **Indexing:** For full-text search.
+
+**Pattern:** S3 Event -> SQS/Kafka -> Lambda/Worker -> Update Metadata.
+
+### 7.3 Cache (Redis)
+*   **Session Cache:** For Upload IDs and offsets during active uploads.
+*   **Metadata Cache:** Store recently accessed directory listings.
+*   **Hot Chunks:** If using a CDN (though typically S3 is sufficient).
+
+### 7.4 Cold Storage (Cost Saving)
+*   User data follows a "temperature" curve. Recent files are hot. Old files are cold.
+*   Move chunks not accessed for 6 months to **S3 Glacier** or **Deep Archive** to save costs.
+*   If user requests download, restore from Glacier (takes time or higher cost).
+
+---
+
+<br>
+
+## 8. Client-Side Complexities (The "Watcher" Service)
+
+The client app is effectively a state machine.
+
+**Code Logic (Conceptual Java):**
+
 ```java
-void checkSync() {
-    List<LocalFile> localFiles = sqlite.getAllFiles();
+public class WatcherService {
     
-    SyncRequest req = new SyncRequest();
-    req.setFiles(localFiles);
+    // Monitors local file system
+    public void onFileChange(File file) {
+        if (file.isDirectory()) return;
+
+        // 1. Check Local Index (SQLite)
+        LocalRecord record = database.get(file.getPath());
+        
+        // 2. Hash the file
+        String newHash = computeHash(file);
+        
+        // 3. Deduplication Check (Did the content actually change?)
+        if (record != null && record.getHash().equals(newHash)) {
+            return; // False alarm (timestamp changed but content didn't)
+        }
+
+        // 4. Trigger Sync
+        syncEngine.addToQueue(new UploadTask(file));
+    }
+}
+```
+
+```java
+public class SyncEngine {
     
-    SyncResponse resp = syncService.check(req);
-    
-    for (OutdatedFile file : resp.getOutdatedFiles()) {
-        downloadManager.download(file.getDownloadUrl());
-        sqlite.updateVersion(file.getFileId(), file.getLatestVersion());
+    public void processUpload(File file) {
+        // 1. Chunking
+        List<Chunk> chunks = chunker.split(file);
+        
+        // 2. Init Request
+        InitResponse meta = backend.initUpload(file.getName(), chunks.getHashes());
+        
+        // 3. Differential Upload
+        for (int i = 0; i < chunks.size(); i++) {
+            // Only upload if server says it's missing (existing_chunks list)
+            if (!meta.getExistingChunks().contains(i)) {
+                 String url = backend.getSignedUrl(meta.getUploadId(), i);
+                 s3Client.put(url, chunks.get(i).getData());
+            }
+        }
+        
+        // 4. Commit
+        backend.commit(meta.getUploadId());
+        
+        // 5. Update Local SQLite
+        localDb.updateStatus(file, "SYNCED");
     }
 }
 ```
 
 ---
 
-## 10. File Versioning
+<br>
 
-**Scenario:** User edits `document.txt` (16 MB)
+## 9. Interview Q&A
 
-**Initial Upload (Version 1):**
-```
-Chunk 1 (5 MB) → hash_1
-Chunk 2 (5 MB) → hash_2
-Chunk 3 (5 MB) → hash_3
-Chunk 4 (1 MB) → hash_4
-```
+### Q1: How do you handle a Resume Upload scenario?
+**Ans:** The Client keeps track of the `UploadID`. If network fails, the client retries `init` with the same file hash. The server looks up the `UploadID` in **Redis**. It returns a list of chunk indexes that are already present in S3. The client only uploads the missing chunks.
 
-**User edits file (changes only first 5 MB):**
+### Q2: How does "Trash" or "Recycle Bin" work?
+**Ans:** It's purely metadata. We set `is_deleted = true` in the Metadata DB. We do not delete the chunks from S3 immediately.
+A background **Garbage Collector (GC)** runs periodically (e.g., every 30 days). It checks files marked `is_deleted` > 30 days. It deletes the record and decrements the `ref_count` in the `Chunks` table. If `ref_count == 0`, the S3 object is physically deleted.
 
-**Smart Upload (Version 2):**
-```
-Chunker compares with local metadata:
-  Chunk 1: hash_1_new (CHANGED) → Upload ✅
-  Chunk 2: hash_2 (SAME) → Skip ❌
-  Chunk 3: hash_3 (SAME) → Skip ❌
-  Chunk 4: hash_4 (SAME) → Skip ❌
-  
-Only upload Chunk 1!
-```
+### Q3: Why use S3 and not store files in the Database?
+**Ans:** Databases (RDBMS) are optimized for structured queries, row locking, and indexing. They perform poorly with large BLOBs (Binary Large Objects). S3 (Object Storage) is cheaper, infinitely scalable, and designed for write-once-read-many binary data.
 
-**Database:**
-```sql
-INSERT INTO file_chunks VALUES 
-  ('file_abc', 'chunk_new', 0, 2),  -- Version 2, Chunk 0
-  ('file_abc', 'chunk_2', 1, 2),    -- Version 2, Chunk 1 (reused)
-  ('file_abc', 'chunk_3', 2, 2),    -- Version 2, Chunk 2 (reused)
-  ('file_abc', 'chunk_4', 3, 2);    -- Version 2, Chunk 3 (reused)
-```
+### Q4: How do you secure the files?
+**Ans:**
+1.  **At Rest:** S3 Server-Side Encryption (SSE-S3 or KMS).
+2.  **In Transit:** HTTPS/TLS 1.3.
+3.  **Authorization:** Signed URLs allow temporary access to a specific object without exposing the bucket credentials.
+
+### Q5: What happens if two users upload the same file at the exact same time?
+**Ans:**
+*   Both calculate the same hash.
+*   Both request `init`.
+*   Server sees identical hashes. Deduplication logic handles it.
+*   Even if they upload chunks in parallel, S3 overwrites (idempotent) or we check existence before write.
+*   Both users get a metadata entry pointing to the same chunks.
 
 ---
 
-## 11. Deduplication
+<br>
 
-**Problem:** Two users upload same file → waste storage
+## 10. Summary
 
-**Solution:** Content-based addressing (hash)
+### Checklist for Success
+*   ✅ **Metadata !== Data:** Separated architecture.
+*   ✅ **Chunking:** Split files for speed, resume, and dedup.
+*   ✅ **Client Intelligence:** Local DB, Watcher, Delta Sync.
+*   ✅ **Security:** Pre-signed URLs.
+*   ✅ **Efficiency:** Metadata sync via Push notifications; Data transfer via S3.
+*   ✅ **Reliability:** ACKs and Commits.
 
-**Flow:**
-```
-User A uploads cat.jpg (10 MB)
-    ↓
-Chunker: Chunk 1 → hash_abc
-    ↓
-Upload Service checks S3:
-    Key: chunks/hash_abc
-    EXISTS? ✅
-    ↓
-Skip upload, reference existing chunk!
-```
-
-**Database:**
-```sql
--- User A
-INSERT INTO file_chunks VALUES ('file_userA', 'chunk_hash_abc', 0, 1);
-
--- User B (same file)
-INSERT INTO file_chunks VALUES ('file_userB', 'chunk_hash_abc', 0, 1);
-
--- Only ONE chunk in S3!
-s3://bucket/chunks/hash_abc
-```
-
-**Storage Savings:**
-```
-Without dedup: 2 users × 10 MB = 20 MB
-With dedup:    1 chunk = 10 MB
-Savings:       50%
-```
-
----
-
-## 12. Optimization: Validator Service
-
-**Problem:** Validating millions of chunks during upload is expensive
-
-**Wrong Approach:**
-```
-For each chunk uploaded:
-    Validate hash ❌ (millions of validations!)
-```
-
-**Correct Approach:**
-```
-Upload all chunks
-    ↓
-User sends COMMIT
-    ↓
-Validator Service (async):
-    - Reads all chunks from S3
-    - Validates hashes
-    - Updates metadata DB
-    
-User sees: "Processing..." (few seconds)
-```
-
----
-
-## 13. Additional Services (Async)
-
-```
-┌─────────────────────────────────────┐
-│         S3 BUCKET                    │
-└────────┬───────┬───────┬───────┬────┘
-         │       │       │       │
-    ┌────▼──┐ ┌──▼───┐ ┌▼────┐ ┌▼────────┐
-    │Virus  │ │Thumb │ │De-  │ │Validator│
-    │Scanner│ │Gen   │ │dup  │ │Service  │
-    └───────┘ └──────┘ └─────┘ └─────────┘
-```
-
-All run async post-upload!
-
----
-
-## 14. Interview Q&A
-
-### Q1: Why use signed URLs instead of uploading via backend?
-
-**A:**
-
-**Via Backend:**
-```
-Client → Load Balancer → Upload Service → S3
-  |         |              |
-  ▼         ▼              ▼
-16 MB     16 MB          16 MB
-```
-**Bandwidth:** 48 MB total!
-
-**Signed URL:**
-```
-Client → S3
-  |
-  ▼
-16 MB only
-```
-**Savings:** 66%!
-
-### Q2: Why chunk files?
-
-**A:**
-
-1. **Resume uploads:** Network fails → resume from last chunk
-2. **Parallel uploads:** 3 chunks simultaneously
-3. **Deduplication:** Reuse identical chunks
-4. **Versioning:** Only upload changed chunks
-
-### Q3: Redis vs Database for upload metadata?
-
-**A:**
-
-| Feature | Redis | PostgreSQL |
-|---------|-------|------------|
-| **Latency** | < 1ms | 10-50ms |
-| **Durability** | No (TTL) | Yes |
-| **Use Case** | Temp upload state | Permanent metadata |
-
-**During upload:** Redis (fast, temporary)  
-**After commit:** PostgreSQL (durable, permanent)
-
-### Q4: How to handle storage quota?
-
-**A:**
-
-```java
-void checkQuota(String userId, long fileSize) {
-    User user = db.getUser(userId);
-    
-    long available = user.getStorageQuota() - user.getStorageUsed();
-    
-    if (fileSize > available) {
-        throw new QuotaExceededException();
-    }
-    
-    // Reserve space
-    user.setStorageUsed(user.getStorageUsed() + fileSize);
-    db.update(user);
-}
-```
-
-### Q5: Sync latency?
-
-**A:**
-
-**Push (WebSocket):** < 1 sec  
-**Pull (Polling):** 30-60 sec  
-
-**Hybrid:** Push for online clients, Pull as fallback
-
-### Q6: Conflict resolution?
-
-**A:**
-
-**Scenario:** User edits same file on 2 devices offline
-
-**Solution:**
-```
-Device A: file_v2_deviceA.txt
-Device B: file_v2_deviceB.txt
-
-User manually resolves conflict
-```
-
-(Detailed solution in Lecture 10: Collaborative Editor)
-
-### Q7: Scale to millions of users?
-
-**A:**
-
-| Component | Scaling Strategy |
-|-----------|------------------|
-| **Upload Service** | Horizontal scaling (stateless) |
-| **Redis** | Cluster mode (partitioning) |
-| **S3** | Infinite (managed by AWS) |
-| **Metadata DB** | Sharding by user_id |
-
-**Calculation:**
-```
-1M users × 10 GB = 10 PB storage
-S3: $23/TB/month = $230,000/month
-```
-
-### Q8: Security?
-
-**A:**
-
-1. **Signed URLs:** Expire in 1 hour
-2. **Permission checks:** Before generating download URL
-3. **Encryption at rest:** S3 server-side encryption
-4. **Virus scanning:** Async post-upload
-
----
-
-## 15. Key Takeaways
-
-✅ **Folders = Metadata:** No real directories, just JSON  
-✅ **Chunking:** 4-5 MB chunks for large files  
-✅ **Signed URLs:** Direct upload to S3 (bypass backend)  
-✅ **Hash Validation:** SHA-256 for integrity  
-✅ **Redis Cache:** Temporary upload state  
-✅ **Versioning:** Only upload changed chunks  
-✅ **Deduplication:** Content-based addressing  
-✅ **Sync:** Push (WebSocket) + Pull (polling)  
-✅ **Local Index:** SQLite for client-side metadata  
-✅ **Async Jobs:** Validation, dedup, virus scan  
-
----
-
-## Summary
-
-**Upload Flow:**
-```
-1. Init: Check quota, return uploadId + chunkSize
-2. Chunk: Split file, generate hashes
-3. URLs: Get signed URLs for each chunk
-4. Upload: Direct to S3 (parallel)
-5. Commit: Validate hashes, save metadata
-6. Sync: Notify all devices via Kafka
-```
-
-**Architecture:**
-- 4 core services (User, Upload, Metadata, Sync)
-- Redis for temp state, PostgreSQL for metadata
-- S3 for blob storage
-- Kafka for sync events
-- Async validators
-
-**Performance:**
-- Millions of users
-- Chunked uploads (resume support)
-- Deduplication (50% savings)
-- Eventual consistency for sync
-
-**End of Lecture 18**
+This design scales to accommodate the massive requirements of a global storage platform while maintaining a responsive user experience.
