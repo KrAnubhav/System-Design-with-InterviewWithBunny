@@ -9,6 +9,24 @@
 
 ---
 
+## 📋 Table of Contents
+
+1. [Brief Introduction](#1-brief-introduction)
+2. [Four Proximity Search Approaches](#2-four-proximity-search-approaches)
+3. [Approach 1: Quad Tree](#3-approach-1-quad-tree)
+4. [Approach 2: Geohash](#4-approach-2-geohash)
+5. [Approach 3: PostgreSQL + GIS Extension](#5-approach-3-postgresql--gis-extension)
+6. [Approach 4: Elasticsearch](#6-approach-4-elasticsearch)
+7. [PostgreSQL + Fuzzy Search (Bonus)](#7-postgresql--fuzzy-search-bonus)
+8. [Comparison Table](#8-comparison-table)
+9. [Decision Tree: Which Approach to Use?](#9-decision-tree-which-approach-to-use)
+10. [Interview Q&A](#10-interview-qa)
+11. [Key Takeaways](#11-key-takeaways)
+
+---
+
+<br>
+
 ## 1. Brief Introduction
 
 ### What is Proximity Search?

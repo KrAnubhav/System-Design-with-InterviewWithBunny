@@ -7,6 +7,21 @@
 
 ---
 
+## 📋 Table of Contents
+
+1. [Brief Introduction of the Application](#1-brief-introduction-of-the-application)
+2. [Functional and Non-Functional Requirements](#2-functional-and-non-functional-requirements)
+3. [Identification of Core Entities](#3-identification-of-core-entities)
+4. [API Design](#4-api-design)
+5. [High-Level Design (HLD)](#5-high-level-design-hld)
+6. [Low-Level Design (LLD)](#6-low-level-design-lld)
+7. [Interview-Style Design Discussion (Q&A Format)](#7-interview-style-design-discussion-qa-format)
+8. [Additional Insights](#8-additional-insights)
+
+---
+
+<br>
+
 ## 1. Brief Introduction of the Application
 
 ### What is a URL Shortener?

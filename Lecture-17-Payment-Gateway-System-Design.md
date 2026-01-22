@@ -19,6 +19,23 @@ Unless you have payment industry experience, this question is **unlikely** in in
 
 ---
 
+## 📋 Table of Contents
+
+1. [Payment Gateway vs Payment Processor](#1-payment-gateway-vs-payment-processor)
+2. [Functional and Non-Functional Requirements](#2-functional-and-non-functional-requirements)
+3. [Core Entities](#3-core-entities)
+4. [Payment Flow (3 Steps)](#4-payment-flow-3-steps)
+5. [API Design](#5-api-design)
+6. [High-Level Design (HLD)](#6-high-level-design-hld)
+7. [Low-Level Design (LLD)](#7-low-level-design-lld)
+8. [Complete Architecture Diagram](#8-complete-architecture-diagram)
+9. [Interview Q&A](#9-interview-qa)
+10. [Key Takeaways](#10-key-takeaways)
+
+---
+
+<br>
+
 ## 1. Payment Gateway vs Payment Processor
 
 ### 1.1 Payment Gateway

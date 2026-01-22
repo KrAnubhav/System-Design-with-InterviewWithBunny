@@ -9,6 +9,24 @@
 
 ---
 
+## 📋 Table of Contents
+
+1. [Brief Introduction](#1-brief-introduction)
+2. [Functional and Non-Functional Requirements](#2-functional-and-non-functional-requirements)
+3. [Core Entities](#3-core-entities)
+4. [API Design](#4-api-design)
+5. [High-Level Design (HLD)](#5-high-level-design-hld)
+6. [Low-Level Design (LLD)](#6-low-level-design-lld)
+7. [Complete Architecture Diagram](#7-complete-architecture-diagram)
+8. [Complete Order Flow](#8-complete-order-flow)
+9. [Interview Q&A](#9-interview-qa)
+10. [Kafka Topics Summary](#10-kafka-topics-summary)
+11. [Key Takeaways](#11-key-takeaways)
+
+---
+
+<br>
+
 ## 1. Brief Introduction
 
 ### What is a Stock Trading Platform?

@@ -9,6 +9,23 @@
 
 ---
 
+## 📋 Table of Contents
+
+1. [Brief Introduction](#1-brief-introduction)
+2. [Functional and Non-Functional Requirements](#2-functional-and-non-functional-requirements)
+3. [Core Entities](#3-core-entities)
+4. [Log Flow (How Logs Reach Backend)](#4-log-flow-how-logs-reach-backend)
+5. [API Design](#5-api-design)
+6. [High-Level Design (HLD)](#6-high-level-design-hld)
+7. [Low-Level Design (LLD)](#7-low-level-design-lld)
+8. [Complete Architecture Diagram](#8-complete-architecture-diagram)
+9. [Interview Q&A](#9-interview-qa)
+10. [Key Takeaways](#10-key-takeaways)
+
+---
+
+<br>
+
 ## 1. Brief Introduction
 
 ### What is a Distributed Logging System?

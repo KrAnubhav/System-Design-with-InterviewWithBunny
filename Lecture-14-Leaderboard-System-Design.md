@@ -10,6 +10,23 @@
 
 ---
 
+## 📋 Table of Contents
+
+1. [Brief Introduction](#1-brief-introduction)
+2. [Functional and Non-Functional Requirements](#2-functional-and-non-functional-requirements)
+3. [Core Entities](#3-core-entities)
+4. [API Design](#4-api-design)
+5. [High-Level Design (HLD)](#5-high-level-design-hld)
+6. [Low-Level Design (LLD)](#6-low-level-design-lld)
+7. [Real-Time Updates (WebSocket)](#7-real-time-updates-websocket)
+8. [Database Comparison](#8-database-comparison)
+9. [Interview Q&A](#9-interview-qa)
+10. [Key Takeaways](#10-key-takeaways)
+
+---
+
+<br>
+
 ## 1. Brief Introduction
 
 ### What is a Leaderboard System?
