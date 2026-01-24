@@ -61,6 +61,8 @@ Since covering all three actors is **time-consuming**, ask your interviewer whic
 ---
 
 ## 2. Functional and Non-Functional Requirements
+<img width="878" height="357" alt="image" src="https://github.com/user-attachments/assets/27fe269b-f124-45ba-9520-409a0b650acf" />
+
 
 ### 2.1 Functional Requirements
 
@@ -410,6 +412,8 @@ GET /v1/orders/{orderId}/track
 ---
 
 ## 5. High-Level Design (HLD)
+<img width="961" height="537" alt="image" src="https://github.com/user-attachments/assets/90b9769d-f1f0-46ef-a848-95a638cf9004" />
+
 
 ### 5.1 High-Level Architecture (All Three Actors)
 
@@ -1122,6 +1126,10 @@ Send notification to assigned driver
 ---
 
 ## 7. Complete Architecture Diagram
+<img width="1141" height="643" alt="image" src="https://github.com/user-attachments/assets/9d72597a-1da6-4872-993e-f0479d979147" />
+<img width="742" height="405" alt="image" src="https://github.com/user-attachments/assets/fe88a6a0-ccf6-4a18-8034-23c1c37de097" />
+
+
 
 ```
 ┌─────────────────────────────────────────────────────────┐
