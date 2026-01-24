@@ -47,6 +47,8 @@ A ticket booking system is an **online service** that allows users to book ticke
 ---
 
 ## 2. Functional and Non-Functional Requirements
+<img width="756" height="287" alt="image" src="https://github.com/user-attachments/assets/9654d845-c243-45b1-accb-14341100298c" />
+
 
 ### 2.1 Functional Requirements
 
@@ -280,6 +282,8 @@ POST /v1/bookings/confirm
 ---
 
 ## 5. High-Level Design (HLD)
+<img width="585" height="226" alt="image" src="https://github.com/user-attachments/assets/16904b65-b47e-478a-a95f-7671978232e5" />
+
 
 ### 5.1 High-Level Design Diagram
 
@@ -581,6 +585,8 @@ This is the **most critical** part of the system!
 ---
 
 ### 6.2 Low-Level Design Diagram (Final Architecture)
+<img width="634" height="269" alt="image" src="https://github.com/user-attachments/assets/42a77e2e-fef3-4062-81d8-8ca4ff868b5c" />
+
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
