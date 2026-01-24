@@ -57,6 +57,8 @@ Since this problem is **straightforward**, the interviewer expects:
 ---
 
 ## 2. Functional and Non-Functional Requirements
+<img width="797" height="252" alt="image" src="https://github.com/user-attachments/assets/8c4f6ece-77b6-4436-82f3-0e530fe31a11" />
+
 
 ### 2.1 Functional Requirements
 
@@ -284,6 +286,8 @@ GET /v1/users/{userId}/bookings
 ---
 
 ## 5. High-Level Design (HLD)
+<img width="609" height="317" alt="image" src="https://github.com/user-attachments/assets/9567e529-5a87-4c0c-b072-22e17e800c6f" />
+
 
 ### 5.1 High-Level Architecture
 
@@ -542,6 +546,8 @@ Join data → Return results
 ---
 
 #### **Proximity Search: 4 Approaches**
+<img width="401" height="314" alt="image" src="https://github.com/user-attachments/assets/38d61632-af0b-4b9f-aed0-2967e87b6fbc" />
+
 
 **1. Elasticsearch (Geospatial)**
 - ✅ Built-in geospatial queries
@@ -957,6 +963,7 @@ ORDER BY created_at DESC;
 ---
 
 ## 7. Complete Architecture Diagram
+<img width="1315" height="617" alt="image" src="https://github.com/user-attachments/assets/04f99eaa-1b8a-41c2-be47-e329c382ab7e" />
 
 ```
 ┌─────────────────────────────────────────────────────────┐
