@@ -95,6 +95,8 @@ A **stock trading platform** (broker) enables users to buy and sell stocks on ex
    - Reduces latency significantly
 
 ---
+<img width="1314" height="252" alt="image" src="https://github.com/user-attachments/assets/d1089758-220e-4200-afe5-900cbc3ebd49" />
+
 
 ## 3. Core Entities
 
@@ -108,6 +110,10 @@ A **stock trading platform** (broker) enables users to buy and sell stocks on ex
 ---
 
 ## 4. API Design
+<img width="859" height="292" alt="image" src="https://github.com/user-attachments/assets/e16d8870-9f26-4750-8536-00983a4c883f" />
+
+<img width="797" height="211" alt="image" src="https://github.com/user-attachments/assets/ac080180-4a0e-449b-b20e-b51cc78099e5" />
+
 
 ### 4.1 User Onboarding APIs
 
@@ -270,6 +276,8 @@ DELETE /v1/watchlists/{watchlistId}
 ---
 
 ## 5. High-Level Design (HLD)
+<img width="714" height="343" alt="image" src="https://github.com/user-attachments/assets/d39c25ce-1009-477c-9dd4-6c1449b34cea" />
+
 
 ### 5.1 High-Level Architecture
 
@@ -969,6 +977,8 @@ User sees real-time prices for all watchlist stocks
 ---
 
 ## 7. Complete Architecture Diagram
+<img width="934" height="536" alt="image" src="https://github.com/user-attachments/assets/eae02ab3-6870-43ad-9361-f34fe6403efe" />
+
 
 ```
 ┌─────────────────────────────────────────────────────────┐
