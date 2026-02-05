@@ -44,6 +44,8 @@ A **social media platform** enables users to create and share content, connect w
 ---
 
 ## 2. Functional and Non-Functional Requirements
+<img width="701" height="200" alt="image" src="https://github.com/user-attachments/assets/44038c51-44e6-43ea-9559-813b76c5db50" />
+
 
 ### 2.1 Functional Requirements
 
@@ -212,6 +214,8 @@ GET /v1/users/{userId}/following
 ---
 
 ## 5. High-Level Design (HLD)
+<img width="677" height="355" alt="image" src="https://github.com/user-attachments/assets/bbdd8b89-d52f-4137-8c26-3bbb782f2c4c" />
+
 
 ### 5.1 High-Level Architecture
 
