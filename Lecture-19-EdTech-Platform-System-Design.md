@@ -48,6 +48,8 @@ An EdTech platform is an online learning system where:
 ---
 
 ## 2. Functional and Non-Functional Requirements
+<img width="870" height="186" alt="image" src="https://github.com/user-attachments/assets/2117f974-7ec7-4e2c-a704-45f4ca3eb2cc" />
+
 
 ### 2.1 Functional Requirements (Student Side)
 
@@ -117,6 +119,8 @@ An EdTech platform is an online learning system where:
 ---
 
 ## 3. Identification of Core Entities
+<img width="946" height="168" alt="image" src="https://github.com/user-attachments/assets/dddcad98-c02f-4fa1-9853-e77ba5a605a9" />
+
 
 Based on functional requirements, core entities are:
 
@@ -185,6 +189,8 @@ GET /api/v1/users/{userId}/enrollments
 ---
 
 ## 5. High-Level Design (HLD)
+<img width="755" height="290" alt="image" src="https://github.com/user-attachments/assets/447a22ae-5a28-4347-9a1d-ff4df6749d4d" />
+
 
 ### 5.1 High-Level Architecture
 
@@ -242,6 +248,8 @@ GET /api/v1/users/{userId}/enrollments
 ---
 
 ## 6. Low-Level Design (LLD)
+<img width="966" height="605" alt="image" src="https://github.com/user-attachments/assets/074d5c3c-6d4b-455c-90f7-8187b4b05c65" />
+
 
 ### 6.1 Complete Architecture Diagram
 
