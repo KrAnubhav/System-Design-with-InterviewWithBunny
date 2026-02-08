@@ -62,6 +62,8 @@ If you get this question in an interview, **you're lucky!** Here's why:
 ---
 
 ## 2. Functional and Non-Functional Requirements
+<img width="753" height="231" alt="image" src="https://github.com/user-attachments/assets/28d12aae-7a44-4cb5-99c8-803a741bf4d7" />
+
 
 ### 2.1 Functional Requirements
 
@@ -272,6 +274,8 @@ GET /v1/videos/{videoId}/play
 ---
 
 ## 5. High-Level Design (HLD)
+<img width="743" height="273" alt="image" src="https://github.com/user-attachments/assets/ecb0f658-aab6-4b29-b731-edb2c63eddce" />
+
 
 ### 5.1 High-Level Architecture
 
@@ -842,6 +846,10 @@ Redis Cache (Check first)
 ---
 
 ## 8. Complete Architecture Diagram
+<img width="1039" height="475" alt="image" src="https://github.com/user-attachments/assets/362c12fa-e004-4b64-94e7-c6b95c449e24" />
+<img width="848" height="312" alt="image" src="https://github.com/user-attachments/assets/a0b523f6-fe7f-412c-9798-6c831ec52e77" />
+
+
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

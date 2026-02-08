@@ -58,6 +58,8 @@ An **e-commerce platform** is an online service that allows users to:
 ---
 
 ## 2. Functional and Non-Functional Requirements
+<img width="706" height="278" alt="image" src="https://github.com/user-attachments/assets/0c8fdecc-b138-4a07-be16-d46ad2736c7e" />
+
 
 ### 2.1 Functional Requirements
 
@@ -297,6 +299,8 @@ GET /v1/orders/{orderId}/status
 ---
 
 ## 5. High-Level Design (HLD)
+<img width="655" height="315" alt="image" src="https://github.com/user-attachments/assets/08669c2b-b484-4493-8357-f9a4fa4ff266" />
+
 
 ### 5.1 High-Level Architecture
 
@@ -384,6 +388,8 @@ GET /v1/orders/{orderId}/status
 ---
 
 ## 6. Low-Level Design (LLD)
+<img width="736" height="390" alt="image" src="https://github.com/user-attachments/assets/2c99c8d7-c0a8-4193-9934-d85a4fcabe5c" />
+
 
 ### 6.1 User Service
 
